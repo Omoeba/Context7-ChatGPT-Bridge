@@ -26,6 +26,11 @@ A bridge that allows ChatGPT to access up-to-date programming documentation thro
    python context7_bridge.py
    ```
    
+   For enhanced access with an API key:
+   ```bash
+   python context7_bridge.py --api-key your-api-key-here
+   ```
+   
    The script automatically starts ngrok and displays the ChatGPT-ready URL.
 
 3. **Add to ChatGPT:**
@@ -69,6 +74,25 @@ ChatGPT → ngrok → Bridge → Context7 MCP Server → Documentation Database
 
 ## Configuration
 
+### API Key Authentication
+
+Context7 supports API key authentication for enhanced access. You can provide your API key in two ways:
+
+**Option 1: Command line argument**
+```bash
+python context7_bridge.py --api-key your-api-key-here
+```
+
+**Option 2: Environment variable**
+```bash
+export CONTEXT7_API_KEY=your-api-key-here
+python context7_bridge.py
+```
+
+**Note:** Command line argument takes precedence over environment variable.
+
+### Other Configuration Options
+
 **Command-line options:**
 ```bash
 python context7_bridge.py --help
@@ -77,9 +101,11 @@ python context7_bridge.py --help
 - `--port` - Port to run on (default: 8000)
 - `--host` - Host to bind to (default: 127.0.0.1)
 - `--no-ngrok` - Disable automatic ngrok tunnel
+- `--api-key` - API key for Context7 authentication
 
 **Environment variables:**
 - `LOG_LEVEL` - Logging level (default: INFO)
+- `CONTEXT7_API_KEY` - API key for Context7 authentication
 
 ## Manual Setup
 
@@ -88,6 +114,9 @@ If you prefer manual ngrok control:
 ```bash
 # Start without ngrok
 python context7_bridge.py --no-ngrok
+
+# With API key
+python context7_bridge.py --no-ngrok --api-key your-api-key-here
 
 # In another terminal
 ngrok http 8000
