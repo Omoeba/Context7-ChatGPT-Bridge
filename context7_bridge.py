@@ -29,8 +29,9 @@ logger = logging.getLogger(__name__)
 class Context7Client:
     """Client for calling Context7 MCP server."""
     
-    def __init__(self):
+    def __init__(self, api_key: Optional[str] = None):
         self.request_id = 1
+        self.api_key = api_key
         
     def _get_request_id(self):
         """Get next request ID."""
@@ -78,12 +79,20 @@ class Context7Client:
             )
             
             # Call Context7 MCP server - try different npx paths
-            npx_commands = [
-                ["npx", "-y", "@upstash/context7-mcp", "--transport", "stdio"],
-                ["C:\\Program Files\\nodejs\\npx.cmd", "-y", "@upstash/context7-mcp", "--transport", "stdio"],
-                ["C:\\Users\\S\\AppData\\Roaming\\npm\\npx.cmd", "-y", "@upstash/context7-mcp", "--transport", "stdio"],
-                ["wsl", "npx", "-y", "@upstash/context7-mcp", "--transport", "stdio"]
+            base_commands = [
+                ["npx", "-y", "@upstash/context7-mcp"],
+                ["C:\\Program Files\\nodejs\\npx.cmd", "-y", "@upstash/context7-mcp"],
+                ["C:\\Users\\S\\AppData\\Roaming\\npm\\npx.cmd", "-y", "@upstash/context7-mcp"],
+                ["wsl", "npx", "-y", "@upstash/context7-mcp"]
             ]
+            
+            # Build commands with API key if provided
+            npx_commands = []
+            for base_cmd in base_commands:
+                cmd = base_cmd + ["--transport", "stdio"]
+                if self.api_key:
+                    cmd.extend(["--api-key", self.api_key])
+                npx_commands.append(cmd)
             
             result = None
             last_error = None
@@ -162,8 +171,8 @@ class Context7Client:
 class ChatGPTContext7Bridge:
     """Bridge that implements ChatGPT's search/fetch specification using Context7."""
     
-    def __init__(self):
-        self.context7 = Context7Client()
+    def __init__(self, api_key: Optional[str] = None):
+        self.context7 = Context7Client(api_key=api_key)
         self.search_cache = {}  # Cache search results for fetch
     
     def parse_library_info(self, context7_response: str) -> List[Dict[str, Any]]:
@@ -404,8 +413,8 @@ class ChatGPTContext7Bridge:
             raise ValueError(f"Failed to fetch document: {str(e)}")
 
 
-# Global bridge instance
-bridge = ChatGPTContext7Bridge()
+# Global bridge instance - will be initialized in main()
+bridge = None
 
 # FastAPI app for ChatGPT SSE endpoint
 app = FastAPI(title="ChatGPT Context7 MCP Bridge")
@@ -698,8 +707,19 @@ def main():
         action='store_true',
         help='Disable automatic ngrok tunnel'
     )
+    parser.add_argument(
+        '--api-key',
+        help='API key for Context7 authentication (can also use CONTEXT7_API_KEY environment variable)'
+    )
     
     args = parser.parse_args()
+    
+    # Get API key from command line argument or environment variable
+    api_key = args.api_key or os.getenv("CONTEXT7_API_KEY")
+    
+    # Initialize global bridge with API key
+    global bridge
+    bridge = ChatGPTContext7Bridge(api_key=api_key)
     
     # Setup signal handlers
     signal.signal(signal.SIGINT, signal_handler)
@@ -708,10 +728,12 @@ def main():
     logger.info(f"🚀 Starting ChatGPT-Compatible Context7 MCP Bridge")
     logger.info(f"🌐 Running on {args.host}:{args.port}")
     logger.info(f"📡 SSE endpoint: http://{args.host}:{args.port}/sse")
+    if api_key:
+        logger.info("🔐 Using API key for Context7 authentication")
     
     # Test Context7 connection
     logger.info("🔍 Testing Context7 connection...")
-    test_bridge = ChatGPTContext7Bridge()
+    test_bridge = ChatGPTContext7Bridge(api_key=api_key)
     test_result = test_bridge.search("react")
     logger.info(f"✅ Context7 test found {len(test_result.get('results', []))} results")
     
